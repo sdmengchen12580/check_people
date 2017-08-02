@@ -16,7 +16,6 @@ import android.widget.ImageButton;
 import com.example.yunwen.textface.camera.CameraInterface;
 import com.example.yunwen.textface.camera.preview.CameraSurfaceView;
 import com.example.yunwen.textface.mode.GoogleFaceDetect;
-import com.example.yunwen.textface.person.Changeactivity;
 import com.example.yunwen.textface.ui.FaceView;
 import com.example.yunwen.textface.util.DisplayUtil;
 import com.example.yunwen.textface.util.EventUtil;
@@ -26,41 +25,51 @@ import java.util.TimerTask;
 
 
 public class CameraActivity extends Activity {
-    /***/
+    /**自定义的surfaceview*/
     CameraSurfaceView surfaceView = null;
-    ImageButton shutterBtn;
+    /**切换前后置*/
     ImageButton switchBtn;
+    /**自定义imageview*/
     FaceView faceView;
+    /**定时器每0.2s去检测是否有人*/
+    Timer timer=new Timer();
+
     float previewRate = -1f;
     private MainHandler mMainHandler = null;
     GoogleFaceDetect googleFaceDetect = null;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_camera);
+        /**初始化控件*/
         initUI();
+        /**初始化参数*/
         initViewParams();
         mMainHandler = new MainHandler();
+        /**初始化谷歌人脸检测*/
         googleFaceDetect = new GoogleFaceDetect(getApplicationContext(), mMainHandler);
-
-        shutterBtn.setOnClickListener(new BtnListeners());
-        switchBtn.setOnClickListener(new BtnListeners());
+        /**handler通知————开始人脸检测*/
         mMainHandler.sendEmptyMessageDelayed(EventUtil.CAMERA_HAS_STARTED_PREVIEW, 1500);
     }
 
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.camera, menu);
-        return true;
-    }
 
-    Timer timer=new Timer();
+    /**初始化控件*/
     private void initUI(){
-        surfaceView = (CameraSurfaceView)findViewById(R.id.camera_surfaceview);
-        shutterBtn = (ImageButton)findViewById(R.id.btn_shutter);
-        switchBtn = (ImageButton)findViewById(R.id.btn_switch);
+        /**自定义surfaceview*/
+        surfaceView = findViewById(R.id.camera_surfaceview);
+        /**切换前置和后置*/
+        switchBtn = findViewById(R.id.btn_switch);
+        switchBtn.setOnClickListener(new OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                switchCamera();
+            }
+        });
+        /**自定义faceview*/
         faceView = (FaceView)findViewById(R.id.face_view);
+        /**循环判断是否有人*/
         timer.schedule(new TimerTask() {
             @Override
             public void run() {
@@ -75,6 +84,7 @@ public class CameraActivity extends Activity {
         },200,200);
     }
 
+    /**初始化surfaceview的参数*/
     private void initViewParams(){
         LayoutParams params = surfaceView.getLayoutParams();
         Point p = DisplayUtil.getScreenMetrics(this);
@@ -85,32 +95,16 @@ public class CameraActivity extends Activity {
     }
 
 
-
-
-    private class BtnListeners implements OnClickListener{
-        @Override
-        public void onClick(View v) {
-            switch(v.getId()){
-                case R.id.btn_shutter:
-                    takePicture();
-                    break;
-                case R.id.btn_switch:
-                    switchCamera();
-                    break;
-                default:break;
-            }
-        }
-    }
-
-
     private  class MainHandler extends Handler{
         @Override
         public void handleMessage(Message msg) {
             switch (msg.what){
+                /**不停的小框移动，跟着人脸*/
                 case EventUtil.UPDATE_FACE_RECT:
                     Face[] faces = (Face[]) msg.obj;
                     faceView.setFaces(faces);
                     break;
+                /**开始人脸检测*/
                 case EventUtil.CAMERA_HAS_STARTED_PREVIEW:
                     startGoogleFaceDetect();
                     break;
@@ -120,12 +114,7 @@ public class CameraActivity extends Activity {
 
     }
 
-    private void takePicture(){
-        CameraInterface.getInstance().doTakePicture();
-        mMainHandler.sendEmptyMessageDelayed(EventUtil.CAMERA_HAS_STARTED_PREVIEW, 1500);
-    }
-
-
+    /**切换前后置摄像头*/
     private void switchCamera(){
         stopGoogleFaceDetect();
         int newId = (CameraInterface.getInstance().getCameraId() + 1)%2;
@@ -133,9 +122,9 @@ public class CameraActivity extends Activity {
         CameraInterface.getInstance().doOpenCamera(null, newId);
         CameraInterface.getInstance().doStartPreview(surfaceView.getSurfaceHolder(), previewRate);
         mMainHandler.sendEmptyMessageDelayed(EventUtil.CAMERA_HAS_STARTED_PREVIEW, 1500);
-//		startGoogleFaceDetect();
-
     }
+
+    /**开启surfaceview*/
     private void startGoogleFaceDetect(){
         Camera.Parameters params = CameraInterface.getInstance().getCameraParams();
         if(params.getMaxNumDetectedFaces() > 0){
@@ -147,6 +136,7 @@ public class CameraActivity extends Activity {
             CameraInterface.getInstance().getCameraDevice().startFaceDetection();
         }
     }
+    /**关闭surfaceview*/
     private void stopGoogleFaceDetect(){
         Camera.Parameters params = CameraInterface.getInstance().getCameraParams();
         if(params.getMaxNumDetectedFaces() > 0){
